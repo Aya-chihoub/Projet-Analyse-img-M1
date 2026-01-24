@@ -1,0 +1,84 @@
+{
+    "images": [
+        {
+            "filename": "exemple1.jpg",
+            "coins": {
+                "count": 2,
+                "denominations": ["1€", "50c"],
+                "total_euros": 1.50
+            }
+        },
+        {
+            "filename": "exemple2.jpg",
+            "coins": {
+                "count": 4,
+                "denominations": ["2€", "20c", "5c", "2c"],
+                "total_euros": 2.27
+            }
+        },
+        {
+            "filename": "exemple3.jpg",
+            "coins": {
+                "count": 5,
+                "denominations": ["2€", "1€", "20c", "5c", "2c"],
+                "total_euros": 3.27
+            }
+        },
+        {
+            "filename": "exemple4.jpg",
+            "coins": {
+                "count": 7,
+                "denominations": ["50c", "20c", "10c", "1€", "5c", "2c", "1c"],
+                "total_euros": 1.88
+            }
+        },
+        {
+            "filename": "exemple5.jpg",
+            "coins": {
+                "count": 8,
+                "denominations": ["1€", "1€", "2€", "20c", "10c", "5c", "2c", "1c"],
+                "total_euros": 4.38
+            }
+        },
+        {
+            "filename": "exemple6.jpg",
+            "coins": {
+                "count": 7,
+                "denominations": ["1€", "50c", "50c", "20c", "10c", "5c", "2c"],
+                "total_euros": 2.37
+            }
+        },
+        {
+            "filename": "exemple7.jpg",
+            "coins": {
+                "count": 8,
+                "denominations": ["2€", "1€", "50c", "20c", "10c", "5c", "2c", "1c"],
+                "total_euros": 3.88
+            }
+        },
+        {
+            "filename": "exemple8.jpg",
+            "coins": {
+                "count": 8,
+                "denominations": ["2€", "1€", "50c", "20c", "10c", "5c", "2c", "1c"],
+                "total_euros": 3.88
+            }
+        },
+        {
+            "filename": "exemple9.jpg",
+            "coins": {
+                "count": 4,
+                "denominations": ["2€", "50c", "10c", "5c"],
+                "total_euros": 2.65
+            }
+        },
+        {
+            "filename": "exemple10.jpg",
+            "coins": {
+                "count": 7,
+                "denominations": ["2€", "1€", "1€", "50c", "50c", "10c", "2c"],
+                "total_euros": 5.12
+            }
+        }
+    ]
+}
