@@ -1,0 +1,16 @@
+# Screenshots
+Screenshot*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# Debug files
+debug_*.py
+test_*.py
+quick_*.py
