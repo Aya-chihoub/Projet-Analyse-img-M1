@@ -1,16 +1,24 @@
 """
 Euro Coin Detection and Identification System
-==============================================
-Master 1 Informatique - IFLBX030 Introduction a l'analyse d'images
+This is the main orchestrator. It connects the "eyes" (detection) with the "brain" (identification).
 
 Full pipeline orchestrator that combines:
   - coin_detection.py   : locating coins (segmentation, Hough, watershed)
   - coin_identification.py : classifying coins (colour, denomination, value)
 
+How it works:
+- Setup: Loads the image from your computer.
+- Preprocess: Shrinks the image to a manageable size and analyzes the background.
+- Detect: Finds the exact locations and sizes of all coins.
+- Analyze Color: Converts the image to HSV and LAB color spaces to understand the metal type.
+- Identify: Groups the coins by color (copper, gold, bimetallic) and guesses their exact Euro value.
+- Calculate: Adds up the total amount of money found in the image.
+- Output: Returns a dictionary with all the math, and can draw the results on the picture.
+
 Usage:
     from coin_detector import CoinDetector
     detector = CoinDetector()
-    result   = detector.process_image('path/to/image.jpg')
+    result = detector.process_image('path/to/image.jpg')
 """
 
 import cv2
@@ -20,33 +28,43 @@ from coin_identification import CoinIdentification
 
 
 class CoinDetector:
-    """End-to-end euro coin detector and identifier.
+    """End-to-end euro coin detector and identifier."""
 
-    Parameters
-    ----------
-    target_width : int
-        Images are resized so width ≈ target_width before processing.
-    use_knn : bool
-        Whether to use KNN for colour classification refinement.
-    """
-
-    def __init__(self, target_width=800, use_knn=True):
+    def __init__(self, target_width=800, use_knn=False):
+        """
+        Initializes the pipeline by setting up the two main worker classes.
+        
+        Args:
+            target_width (int): The baseline width for resizing images. Default is 800px.
+            use_knn (bool): If True, uses K-Nearest Neighbors for more accurate 
+                            color classification. Default is True.
+                            
+        Returns:
+            None
+        """
+        # Instantiate the detection module (handles finding the x, y, radius)
         self.detection = CoinDetection(target_width=target_width)
+
+        # Instantiate the identification module (handles color and value assignment)
+        # THE KNN METHOD IS NOT USED IN THE FINAL VERSION, BUT IT CAN BE ACTIVATED FOR TESTING PURPOSES.
         self.identification = CoinIdentification(use_knn=use_knn)
 
-    # ================================================================ #
-    #  PIPELINE                                                         #
-    # ================================================================ #
     def process_image(self, image_path):
-        """Run the full pipeline on a single image.
-
-        Returns a dict with:
-            count        – number of coins detected
-            total_value  – estimated total value in EUR
-            coins        – list of per-coin dicts (x, y, r, denomination, …)
-            image        – the preprocessed image (for visualisation)
-            scale        – resize scale factor
-            bg_type      – background analysis result
+        """
+        Runs the full detection and identification pipeline on a single image.
+        
+        Args:
+            image_path (str): The file path to the image you want to process.
+            
+        Returns:
+            dict: A comprehensive results dictionary containing:
+                - 'count' (int): Total number of coins detected.
+                - 'total_value' (float): Total value of the coins in Euros.
+                - 'coins' (list): List of dictionaries, one for each coin, containing location (x, y, r) and properties (color_group, denomination).
+                - 'image' (numpy.ndarray): The resized image array used for processing.
+                - 'scale' (float): The scaling factor applied to the original image.
+                - 'bg_type' (dict): The background analysis results.
+                - 'error' (str): Present only if the image failed to load.
         """
         img = cv2.imread(str(image_path))
         if img is None:
@@ -83,12 +101,20 @@ class CoinDetector:
             'bg_type': bg_info,
         }
 
-    # ================================================================ #
-    #  VISUALISATION                                                    #
-    # ================================================================ #
+    # VISUALISATION
     @staticmethod
     def visualize(img, result, title=''):
-        """Draw detected coins, labels, and total on the image."""
+        """
+        Draws the detected coins, their labels, and the total value directly onto the image.
+        
+        Args:
+            img (numpy.ndarray): The image to draw on (usually the image from the result dict).
+            result (dict): The dictionary returned by process_image().
+            title (str, optional): A title to print at the top of the image.
+            
+        Returns:
+            numpy.ndarray: A copy of the image with all the visual annotations applied.
+        """
         vis = img.copy()
         cm = {
             'copper':     (51, 102, 204),

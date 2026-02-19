@@ -1,13 +1,13 @@
 """
 Coin Identification Module
-===========================
-Classifies detected coins by colour group (copper / gold / bimetallic) and
-assigns euro denominations based on:
-  - HSV and Lab colour features
-  - Enhanced bimetallic score (multi-radius Lab colour difference)
-  - Rule-based thresholds adaptive to background type
-  - KNN classifier (minimal ML, scikit-learn)
-  - Relative size within each colour group
+Classifies detected coins by color group (copper / gold / bimetallic) and assigns exact Euro values based purely on image processing rules (with an optional ML test mode).
+
+How it works:
+- Reference Data: Stores the official diameters and colors of all Euro coins.
+- Feature Extraction: Analyzes the pixels inside each coin to get average colors (using HSV and LAB spaces).
+- Bimetallic Score: Looks for a sharp color contrast between the center and the outer ring to spot 1€ and 2€ coins.
+- Rule-Based Logic: Uses specific color math (depending on whether the background is dark, light, or colored) to guess the metal.
+- Relative Sizing: Finds the biggest coin in the image, assumes its real-world size, and uses it as a ruler to calculate the value of all other coins.
 """
 
 import cv2
@@ -15,13 +15,9 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 import warnings
-
 warnings.filterwarnings('ignore')
 
-# ============================================================
-# COIN SPECIFICATIONS
-# ============================================================
-
+# Official specifications of Euro coins. We use this as our absolute reference.
 COIN_SPECS = {
     '1c':    {'diameter_mm': 16.25, 'color_group': 'copper',     'value': 0.01},
     '2c':    {'diameter_mm': 18.75, 'color_group': 'copper',     'value': 0.02},
@@ -33,30 +29,37 @@ COIN_SPECS = {
     '2euro': {'diameter_mm': 25.75, 'color_group': 'bimetallic', 'value': 2.00},
 }
 
+# Helper lists to quickly determine which values belong to which color family
 COPPER_DENOMS  = ['1c', '2c', '5c']
 GOLD_DENOMS    = ['10c', '20c', '50c']
 BIMETAL_DENOMS = ['1euro', '2euro']
+
+# In the photo, we rely on the fact that the biggest copper coin must be a 5c coin, etc.
 LARGEST_BY_COLOR = {'copper': '5c', 'gold': '50c', 'bimetallic': '2euro'}
 
 
 class CoinIdentification:
-    """Classify coins by colour and assign euro denominations."""
+    """Classifies coins by color and assigns Euro denominations based on relative size."""
 
     def __init__(self, use_knn=True):
         self.use_knn = use_knn
         self.knn = self.scaler = None
+
         # Initialize the KNN classifier if the option is enabled
+        # (NOT USED IN THE FINAL VERSION, BUT CAN BE ACTIVATED FOR TESTING PURPOSES).
         if use_knn:
             self._build_knn()
 
-    # ================================================================ #
-    #  KNN CLASSIFIER                                                   #
-    # ================================================================ #
+    # KNN CLASSIFIER
     def _build_knn(self):
-        """Train a small KNN on representative coin colour features.
-
-        Feature vector: [H_mean, S_mean, V_mean, a*_mean, b*_mean, S_std]
-        Labels: copper, gold, bimetallic
+        """
+        Trains a small K-Nearest Neighbors model on representative coin color features.
+        
+        Args:
+            None
+            
+        Returns:
+            None (Modifies self.knn and self.scaler in-place).
         """
         # Hardcoded representative feature vectors for various lighting/backgrounds
         X = np.array([
@@ -90,14 +93,25 @@ class CoinIdentification:
         # Train the model
         self.knn.fit(self.scaler.fit_transform(X), y)
 
-    # ================================================================ #
-    #  COLOUR FEATURE EXTRACTION                                        #
-    # ================================================================ #
+    #  COLOUR FEATURE EXTRACTION
     @staticmethod
     def _color_features(hsv, lab, x, y, r):
-        """Extract HSV/Lab mean and saturation std from a coin region."""
+        """
+        Extracts HSV/Lab mean colors and saturation standard deviation from a coin region.
+        
+        Args:
+            hsv (numpy.ndarray): The full image in HSV color space.
+            lab (numpy.ndarray): The full image in LAB color space.
+            x (int): X-coordinate of the coin's center.
+            y (int): Y-coordinate of the coin's center.
+            r (int): Radius of the coin in pixels.
+            
+        Returns:
+            numpy.ndarray: An array containing [H_mean, S_mean, V_mean, a*_mean, b*_mean, S_std].
+        """
         h, w = hsv.shape[:2]
-        # Create a mask for the circular coin area (approx 78% of radius to avoid edge noise)
+
+        # Create a mask for the circular coin area (~78% of radius to avoid edge noise)
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (x, y), max(int(r * 0.78), 5), 255, -1)
         
@@ -114,8 +128,19 @@ class CoinIdentification:
 
     @staticmethod
     def _enh_bimetallic(lab, x, y, r):
-        """Enhanced bimetallic score: max Lab colour difference across
-        multiple inner/outer radius ratios (detects the metal boundary)."""
+        """
+        Calculates an enhanced bimetallic score by finding the maximum LAB color 
+        difference between the inner core and outer ring of the coin.
+        
+        Args:
+            lab (numpy.ndarray): The full image in LAB space.
+            x (int): X-coordinate of the coin's center.
+            y (int): Y-coordinate of the coin's center.
+            r (int): Radius of the coin in pixels.
+            
+        Returns:
+            float: The maximum color contrast found (higher means likely bimetallic).
+        """
         h, w = lab.shape[:2]
         mx = 0.0
         # Sweep through several potential inner/outer boundaries to find the highest contrast
@@ -142,12 +167,19 @@ class CoinIdentification:
             mx = max(mx, d)
         return mx
 
-    # ================================================================ #
-    #  RULE-BASED CLASSIFICATION (per background type)                  #
-    # ================================================================ #
+    # RULE-BASED CLASSIFICATION (per background type)
     @staticmethod
     def _classify_dark(f, eb):
-        """Classify on a dark, neutral background."""
+        """
+        Classifies the coin color group on a dark, neutral background.
+        
+        Args:
+            f (numpy.ndarray): The feature array [H, S, V, a, b, S_std].
+            eb (float): The calculated bimetallic score.
+            
+        Returns:
+            str: 'copper', 'gold', or 'bimetallic'.
+        """
         # Use Lab a* channel to identify copper (reddish hue)
         if f[3] > 140: return 'copper'
         # Check bimetallic score for 1€/2€ coins
@@ -157,24 +189,49 @@ class CoinIdentification:
 
     @staticmethod
     def _classify_light(f, eb):
-        """Classify on a light, neutral background."""
+        """
+        Classifies the coin color group on a light, neutral background.
+        
+        Args:
+            f (numpy.ndarray): The feature array [H, S, V, a, b, S_std].
+            eb (float): The calculated bimetallic score.
+            
+        Returns:
+            str: 'copper', 'gold', or 'bimetallic'.
+        """
         h_m, s_m, v_m, a_m, b_m, s_std = f
         # High bimetallic contrast or low saturation/value points to bimetallic
-        if eb > 14:                          return 'bimetallic'
-        if s_m < 55 and v_m < 130:           return 'bimetallic'
+        if eb > 14:
+            return 'bimetallic'
+        if s_m < 55 and v_m < 130:
+            return 'bimetallic'
+        
         # High saturation variability (s_std) often appears in 1€/2€ patterns
-        if s_std > 30 and s_m < 85 and eb>8: return 'bimetallic'
+        if s_std > 30 and s_m < 85 and eb>8:
+            return 'bimetallic'
         
         # Color thresholds based on Lab a* and HSV Hue
-        if a_m > 132 and h_m < 17:           return 'copper'
-        if a_m > 136:                        return 'copper'
-        if b_m > 144 and s_m > 75:           return 'gold'
+        if a_m > 132 and h_m < 17:
+            return 'copper'
+        if a_m > 136:
+            return 'copper'
+        if b_m > 144 and s_m > 75:
+            return 'gold'
         
         # Final fallback comparing color intensity distance from neutral gray (128)
         return 'copper' if (a_m-128) > (b_m-128)+3 else 'gold'
 
     def _classify_coloured_bg(self, f, eb):
-        """Classify on a coloured background (e.g. red)."""
+        """
+        Classifies the coin color group on a coloured background (e.g., a red table).
+        
+        Args:
+            f (numpy.ndarray): The feature array [H, S, V, a, b, S_std].
+            eb (float): The calculated bimetallic score.
+            
+        Returns:
+            str: 'copper', 'gold', or 'bimetallic'.
+        """
         h_m, s_m, v_m, a_m, b_m, s_std = f
         # Check for bimetallic transition first
         if eb > 12:   return 'bimetallic'
@@ -185,14 +242,20 @@ class CoinIdentification:
         # Fall back to dark background logic
         return self._classify_dark(f, eb)
 
-    # ================================================================ #
-    #  SINGLE-COIN CLASSIFICATION                                       #
-    # ================================================================ #
+    # SINGLE-COIN CLASSIFICATION
     def classify_one(self, hsv, lab, coin, bg_info):
-        """Classify a single coin: determine its colour group.
-
+        """
+        Classifies a single coin by determining its color group.
         Combines rule-based classification with optional KNN refinement.
-        Modifies *coin* in-place and returns it.
+        
+        Args:
+            hsv (numpy.ndarray): The full image in HSV.
+            lab (numpy.ndarray): The full image in LAB.
+            coin (dict): The dictionary containing 'x', 'y', 'r'.
+            bg_info (dict): The background analysis from the detection phase.
+            
+        Returns:
+            dict: The modified coin dictionary containing its color properties.
         """
         x, y, r = coin['x'], coin['y'], coin['r']
         # Extract visual features and structural bimetallic score
@@ -216,23 +279,28 @@ class CoinIdentification:
             
             if conf > 0.65:
                 # Prioritize strong structural bimetallic/copper signals over KNN
-                if eb > 18:          color = 'bimetallic'
-                elif feats[3] > 142: color = 'copper'
-                else:                color = knn_pred
+                if eb > 18:
+                    color = 'bimetallic'
+                elif feats[3] > 142:
+                    color = 'copper'
+                else:
+                    color = knn_pred
 
         # Save classification metadata to the coin object
         coin.update(features=feats, enh_bimetallic_score=eb,
                     color_group=color, color_rules=cr)
         return coin
 
-    # ================================================================ #
-    #  DENOMINATION ASSIGNMENT                                          #
-    # ================================================================ #
+    # DENOMINATION ASSIGNMENT
     def assign_denominations(self, coins):
-        """Assign euro denomination to each coin based on colour group
-        and relative size (pixel radius vs. known mm diameters).
-
-        Uses the largest detected coin as the scale reference.
+        """
+        Assigns the exact Euro denomination to each coin based on its color group and relative size (pixel radius vs. known mm diameters).
+        
+        Args:
+            coins (list): A list of coin dictionaries with 'color_group' assigned.
+            
+        Returns:
+            list: The fully updated list of coins with 'denomination' and 'value'.
         """
         if not coins:
             return coins
@@ -246,6 +314,7 @@ class CoinIdentification:
         px_mm = (max_r * 2) / COIN_SPECS[ref]['diameter_mm']
 
         for c in coins:
+            
             # Calculate estimated real-world diameter
             dia = (c['r'] * 2) / px_mm
             c['estimated_dia_mm'] = round(dia, 2)
@@ -257,6 +326,7 @@ class CoinIdentification:
             
             # Match to the official diameter that is mathematically closest
             best = min(cands, key=lambda d: abs(COIN_SPECS[d]['diameter_mm']-dia))
+
             c['denomination'] = best
             c['value'] = COIN_SPECS[best]['value']
         return coins

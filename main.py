@@ -424,7 +424,7 @@ def main():
             group_out_dir = RESULTS_DIR / final_group_name
             group_out_dir.mkdir(parents=True, exist_ok=True)
             
-            out_path = group_out_dir / f"result_{Path(fn).name}"
+            out_path = group_out_dir / f"result_{img_path.name}"
             
             cv2.imwrite(str(out_path), vis)
 
