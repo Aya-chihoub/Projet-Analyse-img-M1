@@ -2,7 +2,6 @@
 Coin Identification Module
 Classifies detected coins by color group (copper / gold / bimetallic) and assigns exact Euro values based purely on image processing rules (with an optional ML test mode).
 
-How it works:
 - Reference Data: Stores the official diameters and colors of all Euro coins.
 - Feature Extraction: Analyzes the pixels inside each coin to get average colors (using HSV and LAB spaces).
 - Bimetallic Score: Looks for a sharp color contrast between the center and the outer ring to spot 1€ and 2€ coins.
@@ -314,7 +313,7 @@ class CoinIdentification:
         px_mm = (max_r * 2) / COIN_SPECS[ref]['diameter_mm']
 
         for c in coins:
-            
+
             # Calculate estimated real-world diameter
             dia = (c['r'] * 2) / px_mm
             c['estimated_dia_mm'] = round(dia, 2)
