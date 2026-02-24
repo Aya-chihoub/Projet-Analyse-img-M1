@@ -1,5 +1,5 @@
 """
-Main script – Run the coin detection pipeline.
+Main script - Run the coin detection pipeline.
 CORRECTIF : Gère automatiquement la différence entre "grp" (dans le CSV) et "gp" (dossiers réels).
 
 Usage:

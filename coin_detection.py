@@ -29,7 +29,7 @@ class CoinDetection:
         Args:
             target_width (int): The baseline width images will be resized to before processing. Default is 800px.
         """
-        self.target_width = target_width
+        self.target_width = target_width # target size of 800px (ideal for the quality-speed combo)
         # Cache to store image properties for the fast validation step
         # We initialize these as empty/zero. Later on, we store image-wide calculations so we don't recompute them for every single coin candidate.
         self._val_gray = None

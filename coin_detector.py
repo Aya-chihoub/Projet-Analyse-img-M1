@@ -15,7 +15,7 @@ How it works:
 - Calculate: Adds up the total amount of money found in the image.
 - Output: Returns a dictionary with all the math, and can draw the results on the picture.
 
-Usage:
+Usage (in main.py):
     from coin_detector import CoinDetector
     detector = CoinDetector()
     result = detector.process_image('path/to/image.jpg')
